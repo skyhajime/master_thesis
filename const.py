@@ -1,0 +1,3 @@
+POWER_EPS = 1e-1
+INV_EPS = 1e-9
+ARNOLDI_EPS = 1e-9
