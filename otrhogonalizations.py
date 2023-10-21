@@ -6,7 +6,7 @@ import const as C
 def vector_projection(u, v):
     # project v onto u
     if np.linalg.norm(u) > C.INV_EPS:
-        return np.dot(u, np.conjugate(v))/np.linalg.norm(u)
+        return (np.inner(v, u.conj())/np.linalg.norm(u)) * u
     else:
         return v
 
@@ -17,7 +17,7 @@ def gram_schmidt(V, k):
     return v
 
 def powered_vector(v, basis, p, input_size):
-    varphi = lambda x: (np.sum(v[None,...] * basis(x)))**p
+    varphi = lambda x: (np.inner(v, basis(x)))**p
     p_vec = functionals.functional_inner_product(varphi, basis, -np.pi, np.pi, input_size)
     return p_vec
 

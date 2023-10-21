@@ -2,7 +2,7 @@ import numpy as np
 from scipy.linalg import schur
 
 import const as C
-from otrhogonalizations import powered_gram_schmidt
+from otrhogonalizations import powered_gram_schmidt, vector_projection, powered_vector
 
 
 def power_iteration(A, num_iterations: int):
@@ -26,7 +26,11 @@ def power_iteration(A, num_iterations: int):
 def inverse_iteration(Matrix, mu, b, n=1000):
     k = 0
     m = Matrix.shape[1]
-    inv = np.linalg.inv(Matrix - mu * np.eye(m))
+    try:
+        inv = np.linalg.inv(Matrix - mu * np.eye(m))
+    except np.linalg.LinAlgError:
+        inv = np.linalg.inv(Matrix - (mu + C.INV_EPS) * np.eye(m))
+    b = b / np.linalg.norm(b)
     for _ in range(n):
         k += 1
         b_ = inv @ b
@@ -90,7 +94,9 @@ def QR_algorithm(Matrix):
 
 def power_orthogonal_inverse_iteration(Matrix, eigenvalues, basis, input_size):
     n = 0
-    V = np.random.rand(Matrix.shape[0], Matrix.shape[1]).astype('complex128')
+    V = np.random.rand(Matrix.shape[0], Matrix.shape[1]) + 1j * np.random.rand(Matrix.shape[0], Matrix.shape[1])
+    V = V.astype('complex128')
+    V = V/np.linalg.norm(V, axis=1)
     for k in range(Matrix.shape[1]):
         curr_eig_angle = np.angle(eigenvalues[k])
         power_list = [np.angle(eig)/curr_eig_angle % (2*np.pi) for eig in eigenvalues[:k]]
@@ -108,8 +114,66 @@ def power_orthogonal_QR_algorithm(Matrix, basis, input_size):
 def QR_algorithm_with_inverse_iteration(Matrix):
     n = 0
     eigenvalues, _ = schur(Matrix, output='complex')
-    V = np.random.rand(Matrix.shape[0], Matrix.shape[1]).astype('complex128')
+    eigenvalues = np.diag(eigenvalues)
+    V = np.random.rand(Matrix.shape[0], Matrix.shape[1]) + 1j * np.random.rand(Matrix.shape[0], Matrix.shape[1])
+    V = V.astype('complex128')
+    V = V/np.linalg.norm(V, axis=1)
     for k in range(Matrix.shape[1]):
+        # for j in range(k):
+        #     V[:,k] -= vector_projection(V[:,k], V[:,j])
+        #     V[:,k] /= np.linalg.norm(V[:,k])
         V[:,k], _n = inverse_iteration(Matrix, eigenvalues[k], V[:,k])
         n += _n
-    return np.diag(eigenvalues), V, n
+    # assert np.allclose(Matrix, V@np.diag(eigenvalues)@V.T.conj())
+    return eigenvalues, V*np.sqrt(2*np.pi), n
+
+def QR_algorithm_with_power_vector(Matrix, basis, n_dim):
+    n = 0
+    eigenvalues, V = schur(Matrix, output='complex')
+    eigenvalues = np.diag(eigenvalues)
+
+    # init for power vectors
+    ev_angles = np.angle(eigenvalues)
+    num_inv = 1
+    for i in range(num_inv):
+        if i == 0:
+            continue
+        else:
+            V[:,i], _ = inverse_iteration(Matrix, ev_angles[i], V[:,i])
+            V[:,i] -= vector_projection(u=V[:,0], v=V[:,i])
+            V[:,i] /= np.linalg.norm(V[:,i])
+    # N = V.shape[1]
+    # crand = np.random.rand(N) + 1j*np.random.rand(N)
+    # V[:,l], _n = inverse_iteration(Matrix, ev_angles[l], V[:,l])
+    # V[:,l] -= vector_projection(u=V[:,k], v=V[:,l])
+    # V[:,l] /= np.linalg.norm(V[:,l])
+    # assert np.allclose(Matrix@V[:,k], eigenvalues[k]*V[:,k])
+    # print(Matrix@V[:,l] - eigenvalues[l]*V[:,l])
+    # assert np.allclose(Matrix@V[:,l], eigenvalues[l]*V[:,l])
+    # V[:,k] /= np.linalg.norm(V[:,k])
+    for i, ev_angle in enumerate(ev_angles):
+        if i < num_inv:
+            continue
+        v = V[:,i]
+        v.fill(0)
+        for j in range(num_inv):
+            pj = ev_angle / ev_angles[j]
+            vj = powered_vector(V[:,j], basis, pj, n_dim)
+            v += vj[0]
+        V[:,i] = v/np.linalg.norm(v)
+        # pk = ev_angle / ev_angles[k]
+        # pl = ev_angle / ev_angles[l]
+        # assert np.isclose(eigenvalues[i], eigenvalues[k]**pk)
+        # assert np.isclose(eigenvalues[i], eigenvalues[l]**pl)
+        # vk = powered_vector(V[:,k], basis, pk, n_dim)
+        # vl = powered_vector(V[:,l], basis, pk, n_dim)
+        # v = vk + vl
+        # V[:,i] = vk/np.linalg.norm(vk)
+        # V[:,i] -= vector_projection(u=V[:,k], v=V[:,i])
+        # for j in range(i):
+        #     V[:,i] -= vector_projection(u=V[:,j], v=V[:,i])
+        #     V[:,i] /= np.linalg.norm(V[:,i])
+        # V[:,i] /= np.linalg.norm(V[:,i])
+    V *= np.sqrt(2*np.pi)
+    n += len(ev_angles)
+    return eigenvalues, V, n

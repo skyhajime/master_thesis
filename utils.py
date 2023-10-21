@@ -20,7 +20,13 @@ def generate_krylov(evolution_function, observable_function, initial_point, num_
         Er.append(curr_state)
         Kr.append(observable_function(curr_state))
         curr_state = evolution_function(curr_state)
-    return np.array(Kr), np.array(Er)
+    npK = np.array(Kr)
+    npE = np.array(Er)
+    if npK.ndim == 1:
+        npK = np.expand_dims(npK, axis=1)
+    if npE.ndim == 1:
+        npE = np.expand_dims(npE, axis=1)
+    return npK, npE
 
 def plot_complex_on_unit_circle(data):
     plt.figure(figsize=(5,5))
@@ -38,6 +44,25 @@ def plot_complex_on_unit_circle(data):
     plt.xlim(-1.5,1.5)
     plt.ylim(-1.5,1.5)
     plt.show()
+    return
+
+def set_subplot_complex_on_unit_circle(data, ax, add_color=False):
+    theta = np.linspace(0, 2 * np.pi, 200)
+    radius = 1
+    a = radius * np.cos(theta)
+    b = radius * np.sin(theta)
+    ax.plot(a, b)
+
+    x = [d.real for d in data]
+    y = [d.imag for d in data]
+    if add_color:
+        ax.scatter(x, y, c=list(range(len(data))))
+    else:
+        ax.scatter(x, y)
+    ax.set_ylabel('Imaginary')
+    ax.set_xlabel('Real')
+    ax.set_xlim(-1.5,1.5)
+    ax.set_ylim(-1.5,1.5)
     return
 
 def plot_torus(data, radius=1/2, n=100):
@@ -66,14 +91,15 @@ def plot_torus(data, radius=1/2, n=100):
 
 def plot_on_unit_square(data):
     assert data.ndim == 2
-    plt.figure(figsize=(5,5))
-    plt.scatter(data[:,0], data[:,1])
+    plt.figure(figsize=(8,6))
+    plt.scatter(data[:,0], data[:,1], c=list(range(len(data))))
+    plt.colorbar()
     plt.axvline(1.0)
     plt.axvline(0.0)
     plt.axhline(1.0)
     plt.axhline(0.0)
-    plt.ylabel('Imaginary')
-    plt.xlabel('Real')
+    plt.ylabel('y')
+    plt.xlabel('x')
     plt.xlim(-0.1,1.1)
     plt.ylim(-0.1,1.1)
     plt.show()

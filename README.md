@@ -1,1 +1,1 @@
-## Eigenvector algorithm for Koopman operator
+## Eigenvalue algorithm for Koopman operator

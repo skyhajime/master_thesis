@@ -13,6 +13,7 @@ import utils
 import generators
 import bases
 import representations
+import reconstructions
 import eigensolvers
 from functools import partial
 
@@ -39,7 +40,10 @@ class TestBase(object):
             reader = csv.reader(f)
             header = next(reader)
             for row in reader:
-                results.append([float(x) for x in row])
+                try:
+                    results.append([float(x) for x in row])
+                except ValueError:
+                    pass
         return header, results
 
     def show_stats(self, results, header):
@@ -108,12 +112,41 @@ class TestNonzeroRatio(TestBase):
         np_mean = np.round(np.mean(np_results, axis=0), decimals=2)
         return np_mean[0]
 
+class TestTwoDTorus(TestBase):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.n_dim = 2
+        self.degree = kwargs.get('degree', 10)
+        self.input_size = 1
+        self.n_samples = kwargs.get('n_samples', 100)
+        self.combinations = kwargs.get('combinations', False)
+        self.basis = kwargs.get('basis', partial(bases.fourier_basis, degree=self.degree, combinations=self.combinations))
+        self.representation = kwargs.get('representation', partial(representations.mpEDMD_matrix_representation, basis=self.basis))
+        self.eigensolver = kwargs.get('eigensolver', partial(eigensolvers.power_orthogonal_QR_algorithm, basis=self.basis, input_size=self.input_size))
+
+    def _get_matrix(self):
+        frequencies, initial_points = generators.n_torus_initial_points(n=self.n_dim)
+        self.Xr, self.Er = utils.generate_krylov(partial(generators.n_torus_evolution_function, frequencies=frequencies), generators.twoD_state_to_complex, initial_points, self.n_samples)
+        utils.plot_on_unit_square(self.Er)
+        K, V, D = self.representation(self.Xr)
+        return K, V, D
+
+    def _get_koopman_modes(self):
+        return reconstructions.get_koopman_modes(self.Xr, np.linalg.inv(self.V), self.basis)
+
+    def run(self):
+        self.K, self.V, self.D = self._get_matrix()
+        new_L, self.new_V, self.n = self.eigensolver(self.K)
+        self.r = utils.get_zero_norm_ratio(self.new_V)*100
+        return [self.r, self.n]
+
 class TestNDTorus(TestBase):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.is_show_plot = kwargs.get('is_show_plot', False)
         self.n_dim = kwargs.get('n_dim', 2)
         self.degree = kwargs.get('degree', 10)
-        self.input_size = kwargs.get('input_size', 1)
+        self.input_size = kwargs.get('n_dim', 1)
         self.combinations = kwargs.get('combinations', False)
         self.basis = kwargs.get('basis', partial(bases.fourier_basis, degree=self.degree, combinations=self.combinations))
         self.representation = kwargs.get('representation', partial(representations.mpEDMD_matrix_representation, basis=self.basis))
@@ -121,10 +154,13 @@ class TestNDTorus(TestBase):
 
     def _get_matrix(self, num_col=200):
         frequencies, initial_points = generators.n_torus_initial_points(n=self.n_dim)
-        Xr, Er = utils.generate_krylov(partial(generators.n_torus_evolution_function, frequencies=frequencies), generators.full_state_observable, initial_points, num_col)
-        if self.n_dim==2: utils.plot_on_unit_square(Er)
-        K, V, D = self.representation(Xr)
+        self.Xr, self.Er = utils.generate_krylov(partial(generators.n_torus_evolution_function, frequencies=frequencies), generators.full_state_observable, initial_points, num_col)
+        if self.n_dim==2 and self.is_show_plot: utils.plot_on_unit_square(self.Er)
+        K, V, D = self.representation(self.Xr)
         return K, V, D
+
+    def _get_koopman_modes(self):
+        return reconstructions.get_koopman_modes(self.Xr, np.linalg.inv(self.V), self.basis)
 
     def run(self):
         self.K, self.V, self.D = self._get_matrix()
