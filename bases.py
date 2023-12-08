@@ -2,22 +2,13 @@ import numpy as np
 from itertools import combinations, product
 
 
-def fourier_basis(x, degree, combinations=False):
+def fourier_basis(x, degree):
     if type(x) in (int, float):
         return np.expand_dims(np.array([np.exp(1j*k*x) for k in range(-degree, degree+1, 1)]), axis=0)/np.sqrt(2*np.pi)
-    elif x.size == 1:
-        x = np.squeeze(x)
-        # return np.expand_dims(np.array([np.sin(k*x) for k in range(degree)]), axis=0)  # + [np.cos(k*x) for k in range(degree)]
-        return np.expand_dims(np.array([np.exp(1j*k*x) for k in range(-degree, degree+1, 1)]), axis=0)/np.sqrt(2*np.pi)
     else:
-        if combinations:
-            ks = [list(range(-degree, degree+1, 1))
-                for _ in range(x.size)]
-            return np.expand_dims(np.array([
-                np.exp(1j*sum(k*e for (k,e) in zip(p, x)))
-                for p in product(*ks)]), axis=0)/np.sqrt(2*np.pi)
-        else:
-            return np.expand_dims(np.array([np.exp(1j*k*np.sum(x)) for k in range(-degree, degree+1, 1)]), axis=0)/np.sqrt(2*np.pi)
+        ks = [list(range(-degree, degree+1, 1)) for _ in range(x.size)]
+        return np.expand_dims(np.array([np.exp(1j*sum(k*e for (k,e) in zip(p, x)))
+                                        for p in product(*ks)]), axis=0)/np.sqrt(2*np.pi)
 
 def polynomial_basis(x, degree):
     if type(x) in (int, float):

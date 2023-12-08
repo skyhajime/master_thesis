@@ -26,7 +26,7 @@ def angle_evolution(state, alpha=np.sqrt(3)):
     return (state + alpha) % (2*np.pi)
 
 def n_torus_initial_points(n=10):
-    frequencies = np.array([random.uniform(0.1, 10) for _ in range(n)])
+    frequencies = np.array([random.uniform(0.1, 1) for _ in range(n)])
     initial_points = np.array([random.uniform(0, 1) for _ in range(n)])
     return frequencies, initial_points
 
@@ -35,7 +35,8 @@ def n_torus_evolution_function(current_points, frequencies):
     return next_points
 
 def flat_torus_observable_function(state):
-    return np.exp(1j * state * 2*np.pi)
+    # return state * 2*np.pi
+    return np.pi * (2*state - 1)
 
 def twoD_state_to_complex(state):
     assert len(state) == 2

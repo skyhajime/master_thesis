@@ -3,6 +3,7 @@ from scipy.linalg import schur
 
 import const as C
 from otrhogonalizations import powered_gram_schmidt, vector_projection, powered_vector
+import utils
 
 
 def power_iteration(A, num_iterations: int):
@@ -42,8 +43,9 @@ def inverse_iteration(Matrix, mu, b, n=1000):
     return b, k
 
 def _arnoldi_iteration(A, b, n: int):
-    """Compute a basis of the (n + 1)-Krylov subspace of the matrix A.
+    """Taken from wikipedia: https://en.wikipedia.org/wiki/Arnoldi_iteration
 
+    Compute a basis of the (n + 1)-Krylov subspace of the matrix A.
     This is the space spanned by the vectors {b, Ab, ..., A^n b}.
 
     Parameters
@@ -177,3 +179,61 @@ def QR_algorithm_with_power_vector(Matrix, basis, n_dim):
     V *= np.sqrt(2*np.pi)
     n += len(ev_angles)
     return eigenvalues, V, n
+
+
+def inverse_iteration_with_integer_power(Matrix, basis, n_dim, n_inv=1, eigenvalue_approx=[]):
+    n = 0
+    r = Matrix.shape[0]
+    true_eigenvectors = []
+    true_eigenvalues = []
+    pg = utils.prime_generator()
+    k = 0
+    while k < n_inv:
+        if k < len(eigenvalue_approx):
+            mu = eigenvalue_approx[k]
+        else:
+            ir = np.sqrt(next(pg)) % 1
+            mu = np.exp(1j*2*np.pi*ir)  # some irrational angle eigenvector
+        b = np.random.rand(r) + 1j*np.random.rand(r)
+        b /= np.linalg.norm(b)
+        for eigenvector in true_eigenvectors:
+            b -= vector_projection(eigenvector, b)  # let first vector to be orthogonal to the other eigenvectors
+            b /= np.linalg.norm(b)
+        v, _ = inverse_iteration(Matrix, mu, b, n=1000)
+        _e = Matrix@v / v
+        try:
+            assert np.all(np.isclose(_e, _e[0]))  # all element should be the eigenvalue
+        except AssertionError:
+            print('faced eigenvalue assertion error')
+            continue
+        true_eigenvectors.append(v)
+        true_eigenvalues.append(_e[0])
+        k += 1
+    
+    V = np.empty((r, r)).astype('complex128')
+    L = np.empty(r).astype('complex128')
+    
+    # eigenvalue 1 is always an eigenvalue
+    p = 0
+    L[0] = true_eigenvalues[0]**p
+    V[0,:] = powered_vector(true_eigenvectors[0], basis, p, n_dim)
+    V[0,:] /= np.linalg.norm(V[p,:])
+    performed_powers = []
+    for p in range(1, r + 1):
+        for i in range(n_inv):
+            q = (p-1)*n_inv + i + 1
+            if q >= r:
+                break
+            if p == 1:
+                L[q] = true_eigenvalues[i]**p
+                V[q,:] = true_eigenvectors[i]
+            else:
+                L[q] = true_eigenvalues[i]**p
+                V[q,:] = powered_vector(true_eigenvectors[i], basis, p, n_dim)
+            V[q,:] /= np.linalg.norm(V[q,:])
+            performed_powers.append((i, p))
+        if q >= r:
+            break
+
+    V *= np.sqrt(2*np.pi)
+    return L, V, n, performed_powers

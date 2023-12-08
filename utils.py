@@ -119,3 +119,15 @@ def get_zero_norm_ratio(V):
         if np.linalg.norm(V[:,k]) < C.POWER_EPS:
             n -= 1
     return n/N
+
+def prime_generator():
+    prime = 2
+    while True:
+        is_prime = True
+        for i in range(2, prime):
+            if prime%i == 0:
+                is_prime = False
+                break
+        if is_prime:
+            yield prime
+        prime += 1
